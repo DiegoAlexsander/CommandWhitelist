@@ -14,6 +14,7 @@ public class ConfigCache {
     private final Object logger;
     private final boolean canDoProtocolLib;
     private final HashMap<String, CWGroup> groupList = new LinkedHashMap<>();
+    private final HashMap<String, String> commandAliases = new HashMap<>();
     public String prefix, command_denied, no_permission, no_such_subcommand, config_reloaded, added_to_whitelist,
             removed_from_whitelist, group_doesnt_exist, subcommand_denied;
     public boolean useProtocolLib = false;
@@ -89,10 +90,11 @@ public class ConfigCache {
         defaultCommands.add("warp");
         List<String> defaultSubcommands = new ArrayList<>();
         defaultSubcommands.add("help about");
+        List<String> defaultHiddenCommands = new ArrayList<>();
 
         String defaultCustomCommandDeniedMessage = "";
 
-        config.addDefault("groups.default", new CWGroup("default", defaultCommands, defaultSubcommands, defaultCustomCommandDeniedMessage).serialize());
+        config.addDefault("groups.default", new CWGroup("default", defaultCommands, defaultSubcommands, defaultHiddenCommands, defaultCustomCommandDeniedMessage).serialize());
 
         prefix = config.getString("messages.prefix");
         command_denied = config.getString("messages.command_denied");
@@ -119,6 +121,25 @@ public class ConfigCache {
         ConfigSection groupSection = config.getConfigSection("groups");
         for (String key : groupSection.getKeys(false)) {
             groupList.put(key, loadCWGroup(key, groupSection));
+        }
+
+        // Load command aliases
+        commandAliases.clear();
+        config.makeSectionLenient("command_aliases");
+        config.addComment("command_aliases", "Command aliases allow you to create custom command names that map to actual commands.\n" +
+                "This is useful when other plugins transform commands (like ChatControl rules).\n" +
+                "Example: If you create a rule that transforms '/s <message>' into '/channel send staff <message>',\n" +
+                "you can add 's: channel' here so players only need permission for 's' instead of 'channel'.\n" +
+                "Format: 'alias: actual_command' (without the /)");
+        ConfigSection aliasSection = config.getConfigSection("command_aliases");
+        if (aliasSection != null) {
+            for (String alias : aliasSection.getKeys(false)) {
+                String actualCommand = aliasSection.getString(alias);
+                if (actualCommand != null && !actualCommand.isEmpty()) {
+                    commandAliases.put(alias.toLowerCase(), actualCommand.toLowerCase());
+                    debug("Loaded command alias: " + alias + " -> " + actualCommand);
+                }
+            }
         }
 
         return saveConfig();
@@ -164,8 +185,22 @@ public class ConfigCache {
             }
             subCommands.add(subCmd);
         }
+        
+        // Load hidden commands (commands that work but don't show in tab completion)
+        HashSet<String> hiddenCommands = new HashSet<>();
+        for (String cmd : section.getStringList(id + ".hidden_commands")) {
+            if (cmd.contains(" ")) {
+                String[] cmdSplit = cmd.split(" ");
+                warn("CommandWhitelist - \"" + cmd + "\" is not a command. Loading it as \"" + cmdSplit[0] + "\".");
+                cmd = cmdSplit[0];
+            }
+            if (hiddenCommands.contains(cmd)) continue;
+            hiddenCommands.add(cmd);
+            debug("Loaded hidden command: " + cmd + " for group: " + id);
+        }
+        
         String customCommandDeniedMessage = section.getString(id + ".custom_command_denied_message");
-        return new CWGroup(id, commands, subCommands, customCommandDeniedMessage);
+        return new CWGroup(id, commands, subCommands, hiddenCommands, customCommandDeniedMessage);
     }
 
     public void saveCWGroup(String id, CWGroup group) {
@@ -177,19 +212,20 @@ public class ConfigCache {
         return groupList;
     }
 
+    public HashMap<String, String> getCommandAliases() {
+        return commandAliases;
+    }
+
     private void warn(String log) {
         if (logger == null) {
             System.out.println("WARNING: "+log);
-            return;
-        }
-        if (logger instanceof org.slf4j.Logger) {
-            ((org.slf4j.Logger) logger).warn(log);
             return;
         }
         if (logger instanceof java.util.logging.Logger) {
             ((java.util.logging.Logger) logger).warning(log);
             return;
         }
+        System.out.println("WARNING: "+log);
     }
 
     public void debug(String log) {
@@ -198,14 +234,11 @@ public class ConfigCache {
             System.out.println("DEBUG: "+log);
             return;
         }
-        if (logger instanceof org.slf4j.Logger) {
-            ((org.slf4j.Logger) logger).info(log);
-            return;
-        }
         if (logger instanceof java.util.logging.Logger) {
             ((java.util.logging.Logger) logger).info(log);
             return;
         }
+        System.out.println("DEBUG: "+log);
     }
 
 }

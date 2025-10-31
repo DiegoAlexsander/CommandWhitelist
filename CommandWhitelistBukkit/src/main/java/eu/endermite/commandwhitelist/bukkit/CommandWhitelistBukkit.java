@@ -110,10 +110,30 @@ public class CommandWhitelistBukkit extends JavaPlugin {
         HashSet<String> commandList = new HashSet<>();
         HashMap<String, CWGroup> groups = configCache.getGroupList();
         for (Map.Entry<String, CWGroup> s : groups.entrySet()) {
-            if (s.getKey().equalsIgnoreCase("default"))
+            if (s.getKey().equalsIgnoreCase("default")) {
                 commandList.addAll(s.getValue().getCommands());
-            else if (player.hasPermission(s.getValue().getPermission()))
+                commandList.addAll(s.getValue().getHiddenCommands());
+            } else if (player.hasPermission(s.getValue().getPermission())) {
                 commandList.addAll(s.getValue().getCommands());
+                commandList.addAll(s.getValue().getHiddenCommands());
+            }
+        }
+        return commandList;
+    }
+
+    /**
+     * @param player Bukkit Player
+     * @return visible commands available to the player (excludes hidden commands)
+     */
+    public static HashSet<String> getVisibleCommands(org.bukkit.entity.Player player) {
+        HashSet<String> commandList = new HashSet<>();
+        HashMap<String, CWGroup> groups = configCache.getGroupList();
+        for (Map.Entry<String, CWGroup> s : groups.entrySet()) {
+            if (s.getKey().equalsIgnoreCase("default")) {
+                commandList.addAll(s.getValue().getCommands());
+            } else if (player.hasPermission(s.getValue().getPermission())) {
+                commandList.addAll(s.getValue().getCommands());
+            }
         }
         return commandList;
     }

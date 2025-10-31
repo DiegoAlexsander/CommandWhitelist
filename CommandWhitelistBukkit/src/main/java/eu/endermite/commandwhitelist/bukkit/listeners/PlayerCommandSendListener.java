@@ -14,7 +14,8 @@ public class PlayerCommandSendListener implements Listener {
     public void PlayerCommandSendEvent(org.bukkit.event.player.PlayerCommandSendEvent event) {
         Player player = event.getPlayer();
         if (player.hasPermission(CWPermission.BYPASS.permission())) return;
-        HashSet<String> commandList = CommandWhitelistBukkit.getCommands(player);
+        // Only show visible commands in tab completion (hidden commands are excluded)
+        HashSet<String> commandList = CommandWhitelistBukkit.getVisibleCommands(player);
         event.getCommands().removeIf((cmd) -> !commandList.contains(cmd));
     }
 }

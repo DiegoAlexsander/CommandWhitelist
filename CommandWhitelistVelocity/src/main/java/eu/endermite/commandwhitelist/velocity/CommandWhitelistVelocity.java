@@ -78,7 +78,8 @@ public class CommandWhitelistVelocity {
     public void onUserCommandSendEvent(PlayerAvailableCommandsEvent event) {
         Player player = event.getPlayer();
         if (player.hasPermission(CWPermission.BYPASS.permission())) return;
-        HashSet<String> allowedCommands = getCommands(player);
+        // Only show visible commands in tab completion (hidden commands are excluded)
+        HashSet<String> allowedCommands = getVisibleCommands(player);
         event.getRootNode().getChildren().removeIf((commandNode) ->
                 server.getCommandManager().hasCommand(commandNode.getName())
                         && !allowedCommands.contains(commandNode.getName())
@@ -144,6 +145,26 @@ public class CommandWhitelistVelocity {
      * @return commands available to the player
      */
     public HashSet<String> getCommands(Player player) {
+        HashMap<String, CWGroup> groups = configCache.getGroupList();
+        HashSet<String> commandList = new HashSet<>();
+        for (Map.Entry<String, CWGroup> s : groups.entrySet()) {
+            CWGroup group = s.getValue();
+            if (s.getKey().equalsIgnoreCase("default")) {
+                commandList.addAll(group.getCommands());
+                commandList.addAll(group.getHiddenCommands());
+            } else if (player.hasPermission(group.getPermission())) {
+                commandList.addAll(group.getCommands());
+                commandList.addAll(group.getHiddenCommands());
+            }
+        }
+        return commandList;
+    }
+
+    /**
+     * @param player Velocity Player
+     * @return visible commands available to the player (excludes hidden commands)
+     */
+    public HashSet<String> getVisibleCommands(Player player) {
         HashMap<String, CWGroup> groups = configCache.getGroupList();
         HashSet<String> commandList = new HashSet<>();
         for (Map.Entry<String, CWGroup> s : groups.entrySet()) {
